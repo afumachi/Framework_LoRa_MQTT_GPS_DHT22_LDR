@@ -26,7 +26,6 @@ void App_radio_send_UL() {
   // Nível da Bateria 
   uint16_t bateria = analogRead(BAT_PIN); // PIN D32
   float    voltage_bat  = (bateria * 3.3f ) / 4095.0f;
-  uint16_t voltBatInt = (uint16_t)(voltage_bat * 100);
   
   // Armazene as informações no PacoteUL[] ele é que será enviado no pacote de UL
 
@@ -40,6 +39,7 @@ void App_radio_send_UL() {
 
     // Tensão da Bateria
     //Pacote_UL[19] = TIPO_SENSOR_BAT;
+    uint16_t voltBatInt = (uint16_t)(voltage_bat * 100);
     PacoteUL[20] = (voltBatInt >> 8) & 0xFF;
     PacoteUL[21] =  voltBatInt       & 0xFF;
 

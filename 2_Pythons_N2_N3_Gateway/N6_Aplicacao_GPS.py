@@ -12,7 +12,7 @@ import os
 
 style.use("ggplot")
 
-MAX_PONTOS = 60
+MAX_PONTOS = 600
 cor_lum   = "#1f77b4"
 cor_temp  = "#2ca02c"
 cor_umid  = "#9467bd"
@@ -85,14 +85,14 @@ def ler_feedback_led():
 
 # ===================== COMANDO DO LED =====================
 
-estado_comando_led = tk.IntVar(value=0)
-
 def enviar_comando_led():
     novo_valor = 0 if estado_comando_led.get() == 1 else 1
     estado_comando_led.set(novo_valor)
     with open(CAMINHO_CMD_LED,"w") as f:
         f.write(str(novo_valor))
-    btn_led.config(text="Comando LED: " + ("LIGAR" if novo_valor == 0 else "DESLIGAR"))
+    #btn_led.config(text="Comando LED: " + ("LIGAR" if novo_valor == 0 else "DESLIGAR"))
+    btn_led.config(text=("LIGAR" if novo_valor == 0 else "DESLIGAR") + " LED")
+    
     print(f"Comando de LED enviado: {novo_valor}")
 
 # ===================== BOTÃO DE MAPA =====================
@@ -100,6 +100,9 @@ def enviar_comando_led():
 def abrir_mapa():
     if ultima_lat is None or ultima_lon is None:
         messagebox.showinfo("GPS","Ainda não há coordenadas de GPS disponíveis.")
+        return
+    if abs(ultima_lat) < 0.0001 and abs(ultima_lon) < 0.0001:
+        messagebox.showinfo("GPS","O nó ainda não obteve um fix de GPS válido (coordenadas em 0,0).")
         return
     url = f"https://www.google.com/maps?q={ultima_lat},{ultima_lon}"
     webbrowser.open(url)
@@ -153,20 +156,24 @@ def atualizar(canvas, raiz, labels):
 
     # ----- Textos (bateria e GPS) -----
     if bat:
-        labels["bateria"].config(text="Bateria (bruto): " + str(int(bat[-1])))
+        #labels["bateria"].config(text="Bateria (Vdc): " + str(int(bat[-1])))
+        labels["bateria"].config(text=f"Bateria (Vdc): {float(bat[-1]):.2f}")
+
     if lat and lon:
         ultima_lat = lat[-1]
         ultima_lon = lon[-1]
         labels["gps"].config(text=f"GPS: Lat {lat[-1]:.6f}  |  Lon {lon[-1]:.6f}  |  Alt {alt[-1]:.0f} m")
 
     # ----- Feedback do LED -----
+    # -1 (ou qualquer valor fora de 0/1, inclusive arquivo ausente) significa
+    # "sem leitura válida ainda" -- ex: pacote perdido ou nó ainda não confirmou
     fb = ler_feedback_led()
     if fb == 1:
-        labels["led_fb"].config(text="Feedback LED: ACESO",bg="#2ca02c")
+        labels["led_fb"].config(text="LED: ACESO",bg="#bcbd22") # ffff00 amarelo claro # 2ca02c verde
     elif fb == 0:
-        labels["led_fb"].config(text="Feedback LED: APAGADO",bg="#888888")
+        labels["led_fb"].config(text="LED: APAGADO",bg="#888888")
     else:
-        labels["led_fb"].config(text="Feedback LED: --",bg="#888888")
+        labels["led_fb"].config(text="LED: --",bg="#888888")
 
     raiz.after(1000,atualizar,canvas,raiz,labels)
 
@@ -176,10 +183,23 @@ def fechar():
     if messagebox.askokcancel("Sair","Deseja fechar o monitor?"):
         raiz.destroy()
 
-def salvar(fig):
-    arquivo = filedialog.asksaveasfilename(defaultextension=".png")
-    if arquivo:
-        fig.savefig(arquivo)
+def salvar(figura):
+    # Abre a janela de salvar arquivo limitando para a extensão .png
+    caminho_arquivo = filedialog.asksaveasfilename(
+        defaultextension=".png",
+        filetypes=[("Imagens PNG", "*.png"), ("Todos os arquivos", "*.*")],
+        title="Salvar Gráfico como PNG"
+    )
+    
+    # Se o usuário escolheu um local e não cancelou a janela
+    if caminho_arquivo:
+        try:
+            # Salva a figura do matplotlib no formato PNG
+            figura.savefig(caminho_arquivo, format='png', dpi=300, bbox_inches='tight')
+            messagebox.showinfo("Sucesso", "Gráfico salvo com sucesso!")
+        except Exception as e:
+            messagebox.showerror("Erro", f"Não foi possível salvar o gráfico:\n{e}")
+
 
 # ===================== INTERFACE =====================
 
@@ -187,23 +207,38 @@ raiz = tk.Tk()
 raiz.title("FEE247 - NÍVEL 6 - APLICAÇÃO")
 raiz.geometry("1050x950")
 
-# ----- Textos de bateria e GPS -----
+estado_comando_led = tk.IntVar(value=0)
+
+# ----- Textos de bateria, GPS e Botões (Tudo no mesmo frame) -----
 frame_labels = tk.Frame(raiz)
 frame_labels.pack(fill="x", padx=10, pady=8)
 
-label_bateria = tk.Label(frame_labels,text="Bateria (bruto): --",font=("Arial",11,"bold"),
-                          bg="#555555",fg="white",relief="ridge",bd=3,width=24,pady=6)
-label_bateria.pack(side="left",padx=6)
+# LABELS
+label_bateria = tk.Label(frame_labels, text="Bateria (Vdc): --", font=("Arial", 11, "bold"),
+                          bg="#555555", fg="white", relief="ridge", bd=3, width=24, pady=6)
+label_bateria.pack(side="left", padx=6)
 
-label_gps = tk.Label(frame_labels,text="GPS: --",font=("Arial",11,"bold"),
-                      bg="#555555",fg="white",relief="ridge",bd=3,width=46,pady=6)
-label_gps.pack(side="left",padx=6)
+label_gps = tk.Label(frame_labels, text="GPS: --", font=("Arial", 11, "bold"),
+                      bg="#555555", fg="white", relief="ridge", bd=3, width=46, pady=6)
+label_gps.pack(side="left", padx=6)
 
-label_led_fb = tk.Label(frame_labels,text="Feedback LED: --",font=("Arial",11,"bold"),
-                         bg="#888888",fg="white",relief="ridge",bd=3,width=22,pady=6)
-label_led_fb.pack(side="left",padx=6)
+btn_mapa = tk.Button(frame_labels, text="Ver no Maps", command=abrir_mapa, width=20, height=2)
+btn_mapa.pack(side="left", padx=8)
+
+label_led_fb = tk.Label(frame_labels, text="LED: --", font=("Arial", 11, "bold"),
+                         bg="#888888", fg="white", relief="ridge", bd=3, width=22, pady=6)
+label_led_fb.pack(side="left", padx=6)
+
+#btn_led = tk.Button(frame_labels, text="Comando LED: LIGAR", command=enviar_comando_led)
+btn_led = tk.Button(frame_labels, text="LIGAR LED", command=enviar_comando_led, width=20, height=2)
+btn_led.pack(side="left", padx=8)
 
 labels = {"bateria": label_bateria, "gps": label_gps, "led_fb": label_led_fb}
+
+# BOTÕES (Agora vinculados ao frame_labels e alinhados à esquerda)
+
+btn_salvar = tk.Button(frame_labels, text="Salvar Gráficos", command=lambda: salvar(fig))
+btn_salvar.pack(side="right", pady=5)
 
 # ----- Área dos gráficos (3 subplots empilhados) -----
 frame_graficos = tk.Frame(raiz)
@@ -214,21 +249,9 @@ ax_lum  = fig.add_subplot(311)
 ax_temp = fig.add_subplot(312)
 ax_umid = fig.add_subplot(313)
 
-canvas = FigureCanvasTkAgg(fig,master=frame_graficos)
-canvas.get_tk_widget().pack(fill="both",expand=True)
+canvas = FigureCanvasTkAgg(fig, master=frame_graficos)
+canvas.get_tk_widget().pack(fill="both", expand=True)
 
-# ----- Botões -----
-frame_botoes = tk.Frame(raiz)
-frame_botoes.pack(pady=8)
-
-btn_salvar = tk.Button(frame_botoes,text="Salvar Gráfico",command=lambda: salvar(fig))
-btn_salvar.pack(side="left",padx=8)
-
-btn_mapa = tk.Button(frame_botoes,text="Ver Localização no Mapa",command=abrir_mapa)
-btn_mapa.pack(side="left",padx=8)
-
-btn_led = tk.Button(frame_botoes,text="Comando LED: LIGAR",command=enviar_comando_led)
-btn_led.pack(side="left",padx=8)
 
 # ----- Início -----
 atualizar(canvas,raiz,labels)

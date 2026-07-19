@@ -83,7 +83,7 @@ while True:
             # Bateria -> UL_B20 / UL_B21 (uint16, valor bruto de voltBatInt)
             UL_B20 = int(partes[58])
             UL_B21 = int(partes[59])
-            bateria = bytes_para_uint16(UL_B20,UL_B21)
+            bateria = bytes_para_uint16(UL_B20,UL_B21) / 100.0
 
             # Temperatura -> UL_B22 / UL_B23 (int16, x100)
             UL_B22 = int(partes[60])
@@ -165,9 +165,9 @@ while True:
         soma_lum  = soma_lum  + luminosidades[i]
         soma_temp = soma_temp + temperaturas[i]
         soma_umid = soma_umid + umidades[i]
-        media_lum  = soma_lum  / (i + 1)
-        media_temp = soma_temp / (i + 1)
-        media_umid = soma_umid / (i + 1)
+        media_lum  = round((soma_lum  / (i + 1)),2)
+        media_temp = round((soma_temp / (i + 1)),2)
+        media_umid = round((soma_umid / (i + 1)),2)
         print(str(media_lum) + ";" + str(media_temp) + ";" + str(media_umid),file=f_media)
     f_media.close()
 
