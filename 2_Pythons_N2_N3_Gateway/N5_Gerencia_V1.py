@@ -41,7 +41,7 @@ while True:
 
         # Se todos os bytes do UL forem diferente de 9, considera pacote recebido
         pacote_recebido = 0
-        for j in range(36):
+        for j in range(30):
             if int(partes[38+j]) != 9:
                 pacote_recebido = 1
 

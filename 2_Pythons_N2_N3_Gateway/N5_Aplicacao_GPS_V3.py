@@ -71,6 +71,18 @@ while True:
         if len(partes) < 74:
             continue
 
+        # Bytes de uplink ocupam as colunas 38 a 74 (36 bytes) do arquivo
+        # bruto (colunas 0 e 1 são timestamp/contador). Quando o gateway não
+        # recebe nenhum uplink neste ciclo, esses 36 bytes são gravados
+        # como 9 (marcador de "pacote perdido"). Nesse caso a linha inteira
+        # é descartada, pois não representa uma leitura válida.
+        try:
+            bytes_uplink = [int(x) for x in partes[39:74]]
+        except ValueError:
+            continue
+        if all(b == 9 for b in bytes_uplink):
+            continue
+
         # No arquivo bruto, os bytes do uplink começam na posição 38
         # (2 colunas de timestamp/contador + 36 bytes de downlink)
         # ou seja: partes[byte_do_pacote + 38]
